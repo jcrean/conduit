@@ -49,32 +49,19 @@
     {:producer producer
      :consumer consumer}))
 
-(defn basic-conduit [ostream-producer istream-consumer]
-  (pipeline ostream-producer istream-consumer))
-
-(defn gzip-conduit [ostream-producer istream-consumer]
-  (pipeline ostream-producer istream-consumer :gzip))
-
-
-(defprotocol Conduit
-  (pipe-data [this ostream-producer-fn istream-consumer-fn]))
 
 (defn create-conduit [& args]
-  (reify
-   Conduit
-   (pipe-data
-    [this ostream-producer-fn istream-consumer-fn]
-    (pipeline ostream-producer-fn istream-consumer-fn))))
-
+  (fn [producer consumer & stream-filters]
+    (apply pipeline producer consumer stream-filters)))
 
 (defn initialize []
   (pool/register-pool
    :core-conduits
    (pool/make-factory {:make-fn create-conduit})))
 
-(defn conduit! [name data-producer data-consumer & stream-filters]
+(defn send! [data-producer data-consumer & stream-filters]
   (pool/with-instance [conduit :core-conduits]
-    (pipe-data conduit data-producer data-consumer)))
+    (.join (:consumer (apply conduit data-producer data-consumer stream-filters)))))
 
 
 (initialize)
