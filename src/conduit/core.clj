@@ -28,14 +28,25 @@
 (def *stream-filter-wrappers*
      {:gzip (fn [ostream] (java.util.zip.GZIPOutputStream. ostream))})
 
+(defn apply-standard-filter [filter stream]
+  (if-let [wrapper-fn (get *stream-filter-wrappers* filter)]
+    (wrapper-fn stream)
+    ;; NB: maybe just raise here?
+    stream))
+
 (defn apply-stream-filters [ostream filters]
-  (reduce (fn [stream filter]
-            (if-let [wrapper-fn (get *stream-filter-wrappers* filter)]
-              (wrapper-fn stream)
-              ;; NB: maybe just raise here?
-              stream))
+  (reduce (fn [stream stream-filter]
+            (cond (keyword? stream-filter)
+                  (apply-standard-filter stream-filter stream)
+
+                  (fn? stream-filter)
+                  (stream-filter stream)
+
+                  :else stream)
+            )
           ostream
           filters))
+
 
 (defn pipeline [ostream-producer-fn istream-consumer-fn & stream-filters]
   (let [producer-istream (PipedInputStream.)
